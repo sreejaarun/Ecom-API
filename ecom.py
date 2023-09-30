@@ -1,77 +1,93 @@
-import streamlit as st
-import pandas as pd
-import os
+from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token
+from flask_sqlalchemy import SQLAlchemy
 
-# Mock product data
-products_data = {
-    'Product Name': ['Product 1', 'Product 2', 'Product 3'],
-    'Description': ['Description 1', 'Description 2', 'Description 3'],
-    'Price': [100.0, 200.0, 150.0]
-}
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'super-secret-key'
+jwt = JWTManager(app)
+db = SQLAlchemy(app)
 
-# Mock product reviews data
-reviews_data = {
-    'Product Name': ['Product 1', 'Product 1', 'Product 2'],
-    'Rating': [4, 5, 3],
-    'Comment': ['Good product', 'Excellent!', 'Could be better']
-}
+# Define User and Product models (you can expand these models as needed)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(50))
+    last_name = db.Column(db.String(50))
+    email = db.Column(db.String(100), unique=True)
+    password = db.Column(db.String(100))
 
-# Create DataFrames
-products_df = pd.DataFrame(products_data)
-reviews_df = pd.DataFrame(reviews_data)
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    barcode = db.Column(db.String(20))
+    brand = db.Column(db.String(50))
+    description = db.Column(db.String(200))
+    price = db.Column(db.Float)
+    available = db.Column(db.Boolean)
 
-# Sidebar - User registration and login (mocked)
-st.sidebar.header("User Authentication")
+# Registration API
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    user = User(
+        first_name=data['first_name'],
+        last_name=data['last_name'],
+        email=data['email'],
+        password=data['password']
+    )
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({"message": "User registered successfully"})
 
-# Mock user registration
-if st.sidebar.button("Register"):
-    st.sidebar.text("User registration form (not implemented)")
+# Login API
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(email=data['email']).first()
+    if user and user.password == data['password']:
+        access_token = create_access_token(identity=user.id)
+        return jsonify({"access_token": access_token})
+    return jsonify({"message": "Invalid credentials"}), 401
 
-# Mock user login
-if st.sidebar.button("Login"):
-    st.sidebar.text("User login form (not implemented)")
+# Product Upload API (Admin)
+@app.route('/api/admin/upload-products', methods=['POST'])
+@jwt_required()
+def upload_products():
+    if request.files:
+        # Process and save the CSV file containing product data
+        # You can use a library like pandas for CSV processing
+        # Ensure proper authentication and validation for admin users
+        return jsonify({"message": "CSV file uploaded successfully"})
+    return jsonify({"message": "No CSV file uploaded"}), 400
 
-# Main content - Product listing
-st.title("E-commerce App")
+# Product Review API
+@app.route('/api/products/<int:product_id>/reviews', methods=['POST'])
+@jwt_required()
+def add_product_review(product_id):
+    data = request.json
+    # Validate and process the review data
+    # You can link reviews to specific products using the product_id
+    return jsonify({"message": "Review added successfully"})
 
-st.header("Product Listing")
-st.table(products_df)
+# Product View Pagination API
+@app.route('/api/products', methods=['GET'])
+def get_products():
+    page = int(request.args.get('page', 1))
+    per_page = 10  # Adjust as needed
+    # Fetch and paginate products from the database
+    # Implement sorting based on review or other criteria
+    products = Product.query.paginate(page, per_page, False).items
+    product_list = [{"name": p.name, "barcode": p.barcode, "brand": p.brand, "description": p.description,
+                     "price": p.price, "available": p.available} for p in products]
+    return jsonify(product_list)
 
-# Product review section
-st.header("Product Reviews")
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)
 
-# Select a product for review
-selected_product = st.selectbox("Select a product:", products_df["Product Name"])
 
-if selected_product:
-    st.subheader(f"Reviews for {selected_product}")
-    product_reviews = reviews_df[reviews_df["Product Name"] == selected_product]
-    st.table(product_reviews)
 
-# Review submission form (mocked)
-if st.button("Submit Review"):
-    st.text("Review submission form (not implemented)")
 
-# Pagination (mocked)
-st.header("Pagination")
-page = st.slider("Page", 1, 10, 1)
-st.text(f"Showing products on page {page}")
 
-# Product upload (CSV files)
-st.header("Product Upload (CSV)")
 
-# Allow the user to upload a CSV file
-uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
-
-if uploaded_file is not None:
-    # Read the CSV file into a DataFrame
-    df = pd.read_csv(uploaded_file)
-    st.write(df)
-
-# Admin section (mocked)
-if st.sidebar.checkbox("Admin Panel"):
-    st.sidebar.text("Admin panel (not implemented)")
-
-# Logout (mocked)
-if st.sidebar.button("Logout"):
-    st.sidebar.text("User logout (not implemented)")
