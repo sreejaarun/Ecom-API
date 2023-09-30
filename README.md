@@ -1,6 +1,7 @@
 # Ecom-API
 Creating the backend api for the small e-com site. Below list of scenario is
 covered in the API development.  
+
 1. Registration API :
  
    Need and new users first name , lastname and other requried information.  
@@ -19,4 +20,5 @@ covered in the API development.  
     You have the give the review option user can review the product and rating. 
 
 5. Product view Pagination API :
+
     Show the product in the pagination wise and sorting based on the review.
